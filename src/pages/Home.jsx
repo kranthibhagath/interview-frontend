@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -12,42 +12,115 @@ import Stepper from '@mui/material/Stepper';
 import Typography from '@mui/material/Typography';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
-import AddressForm from './components/AddressForm';
-import Info from './components/Info';
-import InfoMobile from './components/InfoMobile';
-import PaymentForm from './components/PaymentForm';
-import Review from './components/Review';
-import SitemarkIcon from './components/SitemarkIcon';
-import AppTheme from './theme/AppTheme';
-import ColorModeIconDropdown from './theme/ColorModeIconDropdown';
+import AddressForm from '../components/AddressForm';
+import Info from '../components/Info';
+import InfoMobile from '../components/InfoMobile';
+import PaymentForm from '../components/PaymentForm';
+import Review from '../components/Review';
+import { useNavigate } from 'react-router-dom';
 
-const steps = ['Shipping address', 'Payment details', 'Review your order'];
-function getStepContent(step) {
-  switch (step) {
-    case 0:
-      return <AddressForm />;
-    case 1:
-      return <PaymentForm />;
-    case 2:
-      return <Review />;
-    default:
-      throw new Error('Unknown step');
-  }
-}
-export default function Checkout(props) {
+import { getPatientData, updatePatientData } from "../services/authService";
+
+const steps = ['Profile', 'BMI Calculator', 'Plans'];
+
+export default function Home() {
+  const navigate = useNavigate();
   const [activeStep, setActiveStep] = React.useState(0);
+  const [patientData, setPatientData] = React.useState({
+    age: '',
+    gender: '',
+    activityLevel: '',
+    diet: '',
+    healthGoal: '',
+    height: '',
+    weight: ''
+  });
+
+  useEffect(() => {
+    const fetchPatientData = async () => {
+      try {
+        const userID = JSON.parse(localStorage.getItem("user"))?.id; // Get user ID from localStorage
+        if (!userID) {
+          console.error("User ID not found in localStorage");
+          return;
+        }
+        const response = await getPatientData(userID);
+        console.log("Fetched Patient Data:", response.data[0]);
+        setPatientData({
+          age: response.data[0].age || '',
+          gender: response.data[0].gender || '',
+          activityLevel: response.data[0].activityLevel || '',
+          diet: response.data[0].diet || '',
+          healthGoal: response.data[0].healthGoal || '',
+          height: response.data[0].height || '',
+          weight: response.data[0].weight || ''
+        });
+      } catch (error) {
+        console.error("Error fetching patient data:", error);
+      }
+    };
+    fetchPatientData();
+  }, []);
+console.log("Patient Data:", patientData); // For debugging
   const handleNext = () => {
     setActiveStep(activeStep + 1);
   };
   const handleBack = () => {
     setActiveStep(activeStep - 1);
   };
+  const handleFormSubmit = (formData) => {
+    setPatientData(formData);
+    console.log('Patient Data:', formData); // For debugging
+  };
+  const handleLogin = () => {
+    localStorage.removeItem("token"); // Clear token from localStorage
+    localStorage.removeItem("user");
+    navigate('/Login'); // Redirect to login page
+  }
+  const handleGeneratePlan = async () => {
+    const userID = JSON.parse(localStorage.getItem("user"))?.id; // Get user ID from localStorage
+    if (!userID) {
+      console.error("User ID not found in localStorage");
+      return;
+    }
+    const updatedPatientData = {
+      ...patientData,
+      userId: userID // Add userID to the patient data
+    };
+    console.log('Generating plan with data:', updatedPatientData);
+    setPatientData(updatedPatientData);
+    // Call the API to update patient data
+    const response = await updatePatientData(updatedPatientData);
+    if (response.status === 200) {
+      console.log("Patient data updated successfully:", response.data);
+      alert("Plan generated successfully!");
+      handleNext(); // Move to the next step after successful update
+    }
+    // console.log('Generating plan with data:', patientData);
+  };
+  function getStepContent(step) {
+  switch (step) {
+    case 0:
+      return <AddressForm onSubmit={handleFormSubmit} patientData={patientData} />;
+    case 1:
+      return <PaymentForm patientData={patientData} onSubmit={handleFormSubmit} />;
+    case 2:
+      return <Review />;
+    default:
+      throw new Error('Unknown step');
+  }
+}
   return (
-    <AppTheme {...props}>
+    <div>
+      <Button
+        variant="contained"
+        // endIcon={<ChevronRightRoundedIcon />}
+        onClick={handleLogin}
+        sx={{ width: { xs: '100%', sm: 'fit-content' } }}
+      >
+        Login
+      </Button>
       <CssBaseline enableColorScheme />
-      <Box sx={{ position: 'fixed', top: '1rem', right: '1rem' }}>
-        <ColorModeIconDropdown />
-      </Box>
 
       <Grid
         container
@@ -63,34 +136,7 @@ export default function Checkout(props) {
         }}
       >
         <Grid
-          size={{ xs: 12, sm: 5, lg: 4 }}
-          sx={{
-            display: { xs: 'none', md: 'flex' },
-            flexDirection: 'column',
-            backgroundColor: 'background.paper',
-            borderRight: { sm: 'none', md: '1px solid' },
-            borderColor: { sm: 'none', md: 'divider' },
-            alignItems: 'start',
-            pt: 16,
-            px: 10,
-            gap: 4,
-          }}
-        >
-          <SitemarkIcon />
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              flexGrow: 1,
-              width: '100%',
-              maxWidth: 500,
-            }}
-          >
-            <Info totalPrice={activeStep >= 2 ? '$144.97' : '$134.98'} />
-          </Box>
-        </Grid>
-        <Grid
-          size={{ sm: 12, md: 7, lg: 8 }}
+          size={{ sm: 12, md: 12, lg: 12 }}
           sx={{
             display: 'flex',
             flexDirection: 'column',
@@ -137,34 +183,14 @@ export default function Checkout(props) {
               </Stepper>
             </Box>
           </Box>
-          <Card sx={{ display: { xs: 'flex', md: 'none' }, width: '100%' }}>
-            <CardContent
-              sx={{
-                display: 'flex',
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <Typography variant="subtitle2" gutterBottom>
-                  Selected products
-                </Typography>
-                <Typography variant="body1">
-                  {activeStep >= 2 ? '$144.97' : '$134.98'}
-                </Typography>
-              </div>
-              <InfoMobile totalPrice={activeStep >= 2 ? '$144.97' : '$134.98'} />
-            </CardContent>
-          </Card>
           <Box
             sx={{
               display: 'flex',
               flexDirection: 'column',
               flexGrow: 1,
               width: '100%',
-              maxWidth: { sm: '100%', md: 600 },
-              maxHeight: '720px',
+              maxWidth: { sm: '100%', md: '100%' },
+              // maxHeight: '720px',
               gap: { xs: 5, md: 'none' },
             }}
           >
@@ -191,23 +217,6 @@ export default function Checkout(props) {
                 </Step>
               ))}
             </Stepper>
-            {activeStep === steps.length ? (
-              <Stack spacing={2} useFlexGap>
-                <Typography variant="h1">📦</Typography>
-                <Typography variant="h5">Thank you for your order!</Typography>
-                <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                  Your order number is
-                  <strong>&nbsp;#140396</strong>. We have emailed your order
-                  confirmation and will update you once its shipped.
-                </Typography>
-                <Button
-                  variant="contained"
-                  sx={{ alignSelf: 'start', width: { xs: '100%', sm: 'auto' } }}
-                >
-                  Go to my orders
-                </Button>
-              </Stack>
-            ) : (
               <React.Fragment>
                 {getStepContent(activeStep)}
                 <Box
@@ -248,20 +257,19 @@ export default function Checkout(props) {
                       Previous
                     </Button>
                   )}
-                  <Button
+                  {activeStep !== steps.length - 1  && <Button
                     variant="contained"
                     endIcon={<ChevronRightRoundedIcon />}
-                    onClick={handleNext}
+                    onClick={() => activeStep === steps.length - 2 ? handleGeneratePlan() : handleNext()}
                     sx={{ width: { xs: '100%', sm: 'fit-content' } }}
                   >
-                    {activeStep === steps.length - 1 ? 'Place order' : 'Next'}
-                  </Button>
+                    {activeStep === steps.length - 2 ? 'Generate Plan' : 'Next'}
+                  </Button>}
                 </Box>
               </React.Fragment>
-            )}
           </Box>
         </Grid>
       </Grid>
-    </AppTheme>
+      </div>
   );
 }

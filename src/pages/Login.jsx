@@ -17,8 +17,14 @@ const Login = () => {
     try {
       const res = await loginUser(formData);
       console.log("Login Success:", res);
-      alert("Login Success");
-      navigate("/Home"); // Redirect to home or dashboard after successful login
+      if(res?.data?.message){
+        console.log("Login Failed:", res?.data?.message);
+      }else{
+        console.log("Login Success");
+        localStorage.setItem("token", res.data.token); // Store token in localStorage
+        localStorage.setItem("user", JSON.stringify(res.data.user)); // Store user data
+        navigate("/Home"); // Redirect to home or dashboard after successful login
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Login failed");
     }
